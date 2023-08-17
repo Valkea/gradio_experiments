@@ -1,10 +1,12 @@
 import os
+import time
 import json
 import random
 import requests
 
 import gradio as gr
 from huggingface_hub import InferenceClient
+from huggingface_hub.utils._errors import HfHubHTTPError
 
 
 # --- GET KEYS ---
@@ -51,26 +53,44 @@ def create_prompt_formats(user_input, context=None):
 
 
 def predict(message, history):
+    cnt_retry = 0
+    max_retry = 60 # 60*15= 15 min
+    wait_time = 15
+    error_msg = "The Inference server is unreachable. Please try again later."
+    wait_msg = "The Inference server was off. We will spin it for you! \nPlease be patient (this model can take up to 10 minutes to load)\n"
 
-    prompt = create_prompt_formats(message, None)
-    stream = client.text_generation(prompt, stream=True, details=True, **gen_kwargs)
-    answer = ""
+    while True:
+        try:
+            prompt = create_prompt_formats(message, None)
+            stream = client.text_generation(
+                prompt, stream=True, details=True, **gen_kwargs
+            )
+            answer = ""
 
-    # -- yield each generated token
-    for r in stream:
+            # -- yield each generated token
+            for r in stream:
+                # -- skip special tokens
+                if r.token.special:
+                    continue
 
-        # -- skip special tokens
-        if r.token.special:
-            continue
+                # -- stop if we encounter a stop sequence
+                if r.token.text in gen_kwargs["stop_sequences"]:
+                    break
 
-        # -- stop if we encounter a stop sequence
-        if r.token.text in gen_kwargs["stop_sequences"]:
+                # -- yield the generated token
+                print(r.token.text, end="")
+                answer += r.token.text
+                yield answer
+        except Exception:
+            cnt_retry += 1
+            wait_msg += "."
+            yield wait_msg
+            time.sleep(wait_time)
+
+        if cnt_retry >= max_retry:
+            yield error_msg
+            raise gr.error(error_msg)
             break
-
-        # -- yield the generated token
-        print(r.token.text, end="")
-        answer += r.token.text
-        yield answer
 
 
 # --- DEFINE INTERFACE ---

@@ -60,6 +60,8 @@ def predict(message, history):
     error_msg = "The Inference instance is unreachable. Please try again later."
     wait_msg = "The Inference instance was asleep, but we will wake it up for you! \nPlease be patient, this model needs 3 or 4 minutes to load, and then you will be able to test it flawlessly.\n\n"
 
+    start_time = time.time()
+
     while True:
         try:
             prompt = create_prompt_formats(message, None)
@@ -85,11 +87,16 @@ def predict(message, history):
             break
 
         except Exception:
-            waited_time = timedelta(seconds=wait_time*cnt_retry)
-            tmp_msg = f"{wait_msg} ⌛ {waited_time}"
-            yield tmp_msg
-            time.sleep(wait_time)
             cnt_retry += 1
+            for i in range(wait_time):
+                waited_time = str(timedelta(seconds=time.time()-start_time)).split(".")
+                print(waited_time)
+                tmp_msg = f"{wait_msg} ⌛ {waited_time[0]}"
+                if i == 0:
+                    tmp_msg += " ⚡ "
+                yield tmp_msg
+                time.sleep(1)
+
 
         if cnt_retry >= max_retry:
             yield error_msg

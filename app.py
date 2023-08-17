@@ -81,6 +81,8 @@ def predict(message, history):
                 print(r.token.text, end="")
                 answer += r.token.text
                 yield answer
+            break
+
         except Exception:
             cnt_retry += 1
             wait_msg += "."

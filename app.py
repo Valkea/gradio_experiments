@@ -3,6 +3,7 @@ import time
 import json
 import random
 import requests
+from datetime import timedelta
 
 import gradio as gr
 from huggingface_hub import InferenceClient
@@ -56,8 +57,8 @@ def predict(message, history):
     cnt_retry = 0
     max_retry = 60 # 60*15= 15 min
     wait_time = 15
-    error_msg = "The Inference server is unreachable. Please try again later."
-    wait_msg = "The Inference server was off. We will spin it for you! \nPlease be patient (this model can take up to 10 minutes to load)\n"
+    error_msg = "The Inference instance is unreachable. Please try again later."
+    wait_msg = "The Inference instance was asleep, but we will wake it up for you! \nPlease be patient, this model needs 3 or 4 minutes to load, and then you will be able to test it flawlessly.\n\n"
 
     while True:
         try:
@@ -84,10 +85,11 @@ def predict(message, history):
             break
 
         except Exception:
-            cnt_retry += 1
-            wait_msg += "."
-            yield wait_msg
+            waited_time = timedelta(seconds=wait_time*cnt_retry)
+            tmp_msg = f"{wait_msg} ⌛ {waited_time}"
+            yield tmp_msg
             time.sleep(wait_time)
+            cnt_retry += 1
 
         if cnt_retry >= max_retry:
             yield error_msg
